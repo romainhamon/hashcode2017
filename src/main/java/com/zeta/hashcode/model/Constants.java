@@ -16,6 +16,8 @@ public class Constants {
 
     private Long nbRequestDescription;
 
+    private Long nbCache;
+
     private Long cacheSize;
 
     private Constants() {
@@ -33,10 +35,11 @@ public class Constants {
         return Constants.instance;
     }
 
-    public void initValues(Long nbVideo, Long nbEndpoint, Long nbRequestDescription, Long cacheSize) {
+    public void initValues(Long nbVideo, Long nbEndpoint, Long nbRequestDescription, Long nbCache, Long cacheSize) {
         this.nbVideo = nbVideo;
         this.nbEndpoint = nbEndpoint;
         this.nbRequestDescription = nbRequestDescription;
+        this.nbCache = nbCache;
         this.cacheSize = cacheSize;
     }
 
