@@ -1,96 +1,115 @@
 package com.zeta.hashcode.utils;
 
-import com.zeta.hashcode.model.Constants;
-import com.zeta.hashcode.model.Endpoint;
-import com.zeta.hashcode.model.RequestDescription;
-import com.zeta.hashcode.model.Video;
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import com.zeta.hashcode.model.*;
+import lombok.extern.log4j.Log4j2;
 
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Scanner;
+import java.util.stream.IntStream;
 
-@Data
-@AllArgsConstructor
+@Log4j2
 public final class FileParser {
 
-    private static final String FILE_NAME = "kittens.in.txt";
+    private static final List<String> FILES_NAMES_LIST = Arrays.asList("example.in", "kittens.in.txt", "me_at_the_zoo.in", "trending_today.in", "videos_worth_spreading.in");
 
-    public static List<RequestDescription> getListRequestDescriptionFromInputDataSet() {
+    public static List<RequestDescription> readInputDataSet() {
 
-        List<RequestDescription> listRequestDescriptions = new ArrayList<RequestDescription>();
-        List<Video> listVideos = new ArrayList<Video>();
-        List<Endpoint> listEndpoints = new ArrayList<Endpoint>();
+        List<RequestDescription> listRequestDescriptions = new ArrayList<>();
+        List<Cache> listCaches = new ArrayList<>();
+        List<Video> listVideos = new ArrayList<>();
+        List<Endpoint> listEndpoints = new ArrayList<>();
 
-        try {
+        File file = new File(FileParser.class.getClassLoader().getResource("input/" + FILES_NAMES_LIST.get(1)).getFile());
 
-            ClassLoader classLoader = FileParser.class.getClassLoader();
-            File file = new File(classLoader.getResource("input/" + FILE_NAME).getFile());
-
-            BufferedReader reader = new BufferedReader(new FileReader(file));
-            StringBuilder out = new StringBuilder();
-            String line;
+        try (Scanner scanner = new Scanner(file)) {
 
             Integer lineNumber = 0;
-            Integer nbCaches = 0;
+            Integer nbConnectedCachesEndpoint = 0;
             Integer endpointNumber = 0;
 
-            while ((line = reader.readLine()) != null) {
+            while (scanner.hasNext()) {
 
-                System.out.println("Lecture de la ligne " + lineNumber);
+                String[] parametres = FileParser.getLineParameters(scanner.nextLine());
 
-                String[] parametres = FileParser.getParametresLines(line);
-
-                // Initialisation des constantes
                 if (lineNumber == 0) {
-                    initValues(parametres);
-                // Initialisation des vidéos
+
+                    Long nbVideos = Long.valueOf(parametres[0]);
+                    Long nbEndpoints = Long.valueOf(parametres[1]);
+                    Long nbRequestsDescription = Long.valueOf(parametres[2]);
+                    Integer nbCaches = Integer.valueOf(parametres[3]);
+                    Long sizeCaches = Long.valueOf(parametres[4]);
+
+                    log.debug("{} videos, {} endpoints, {} request descriptions, {} caches {}MB each.", nbVideos, nbEndpoints, nbRequestsDescription, nbConnectedCachesEndpoint, sizeCaches);
+
+                    Constants.getInstance().initValues(nbVideos, nbEndpoints, nbRequestsDescription, Long.valueOf(nbCaches), sizeCaches);
+
+                    IntStream.range(0, nbCaches).forEach(
+                            cacheNumber -> listCaches.add(new Cache(Long.valueOf(cacheNumber), sizeCaches))
+                    );
+
                 } else if (lineNumber == 1) {
-                    for (Integer i = 0; i < parametres.length; i++) {
-                        listVideos.add(new Video(Long.valueOf(i), Long.valueOf(parametres[i])));
-                    }
-                } else if (parametres.length == 2 && nbCaches == 0) {
-                    listEndpoints.add(new Endpoint(Long.valueOf(endpointNumber), Long.valueOf(parametres[0])));
-                    nbCaches = Integer.valueOf(parametres[1]);
-                } else if (parametres.length == 2 && nbCaches != 0) {
+                    IntStream.range(0, parametres.length).forEach(
+                            index -> listVideos.add(new Video(Long.valueOf(index), Long.valueOf(parametres[index])))
+                    );
+                } else if (parametres.length == 2 && nbConnectedCachesEndpoint == 0) {
 
+                    Long dcLatency = Long.valueOf(parametres[0]);
+                    nbConnectedCachesEndpoint = Integer.valueOf(parametres[1]);
 
+                    listEndpoints.add(new Endpoint(Long.valueOf(endpointNumber), dcLatency));
 
-                    nbCaches--;
+                    log.debug("Endpoint {} has {}ms datacenter latency and is connected to {} caches", endpointNumber, dcLatency, nbConnectedCachesEndpoint);
+
+                    endpointNumber++;
+
+                } else if (parametres.length == 2 && nbConnectedCachesEndpoint != 0) {
+
+                    Integer cacheNumber = Integer.valueOf(parametres[0]);
+                    Long latency = Long.valueOf(parametres[1]);
+
+                    Cache cacheEndpoint = listCaches.get(cacheNumber);
+
+                    listEndpoints.get(endpointNumber - 1).getCacheAvailableList().add(new CacheAvailable(latency, cacheEndpoint));
+
+                    log.debug("The latency (of endpoint {}) to cache {} is {}ms", endpointNumber - 1, cacheNumber, latency);
+
+                    nbConnectedCachesEndpoint--;
 
                 } else if (parametres.length == 3) {
+
+                    Long nbRequest = Long.valueOf(parametres[2]);
+                    Integer idVideo = Integer.valueOf(parametres[0]);
+                    Integer idEndpoint = Integer.valueOf(parametres[1]);
+
+                    Video video = listVideos.get(idVideo);
+                    Endpoint endpoint = listEndpoints.get(idEndpoint);
+
+                    listRequestDescriptions.add(new RequestDescription(nbRequest, video, endpoint));
+
+                    log.debug("{} requests for video {} coming from endpoint {}", nbRequest, idVideo, idEndpoint);
 
                 }
 
                 lineNumber++;
 
             }
-
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
+        } catch (IOException e) {
+            log.error(e);
         }
+
+        log.debug(listRequestDescriptions.toString());
+        log.debug(Constants.getInstance().toString());
 
         return listRequestDescriptions;
 
     }
 
-    private static void initValues(String[] parametres) {
-
-        Long nbVideos = Long.valueOf(parametres[0]);
-        Long nbEndpoints = Long.valueOf(parametres[1]);
-        Long nbRequestsDescription = Long.valueOf(parametres[2]);
-        Long nbCaches = Long.valueOf(parametres[3]);
-        Long sizeCaches =  Long.valueOf(parametres[4]);
-
-        Constants.getInstance().initValues(nbVideos, nbEndpoints, nbRequestsDescription, nbCaches, sizeCaches);
-
-    }
-
-    private static String[] getParametresLines(String line) {
+    private static String[] getLineParameters(String line) {
         return line.split("\\s+");
     }
-
-
 
 }

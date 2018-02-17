@@ -2,9 +2,10 @@ package com.zeta.hashcode.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import sun.security.jca.GetInstance;
+import lombok.ToString;
 
 @Data
+@ToString
 @AllArgsConstructor
 public class Constants {
 

@@ -1,20 +1,18 @@
 package com.zeta.hashcode.model;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
-
-import java.util.List;
+import lombok.ToString;
 
 @Data
+@ToString
+@AllArgsConstructor
 public class RequestDescription {
-
-    private Long id;
 
     private Long nbRequest;
 
     private Video video;
 
     private Endpoint endpoint;
-
-    private List<CacheAvailable> listCacheAvailable;
 
 }
